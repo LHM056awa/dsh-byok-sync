@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsh-byok-sync"
+version = "0.1.0"
+description = "Sync DeepSeek Harness (DSH) third-party LLM endpoint model lists from OpenAI-compatible /v1/models endpoints"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["dsh", "deepseek-harness", "byok", "llm", "models", "sync", "openai"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Utilities",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+dsh-byok-sync = "dsh_byok_sync.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dsh_byok_sync = ["presets.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

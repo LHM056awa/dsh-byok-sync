@@ -1,0 +1,93 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Sync DSH Models",
+			"detail": "同步当前 profile 的 cordis.patch.yml 中 llm-pi-ai 各路由的模型列表",
+			"command": "python",
+			"args": [
+				"-m",
+				"dsh_byok_sync",
+				"--all"
+			],
+			"options": {
+				"env": {
+					"PYTHONPATH": "${workspaceFolder}/src"
+				}
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "Sync DSH Models (Dry Run)",
+			"detail": "只打印报告，不写入配置文件",
+			"command": "python",
+			"args": [
+				"-m",
+				"dsh_byok_sync",
+				"--all",
+				"--dry-run"
+			],
+			"options": {
+				"env": {
+					"PYTHONPATH": "${workspaceFolder}/src"
+				}
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Sync DSH Models (Console)",
+			"detail": "弹出独立 cmd 窗口运行同步，报告留在窗口里",
+			"type": "shell",
+			"command": "start",
+			"args": [
+				"",
+				"cmd",
+				"/c",
+				"set PYTHONPATH=${workspaceFolder}\\src& python -m dsh_byok_sync --all & echo. & pause"
+			],
+			"options": {
+				"shell": {
+					"executable": "cmd.exe",
+					"args": [
+						"/d",
+						"/c"
+					]
+				}
+			},
+			"presentation": {
+				"reveal": "silent",
+				"close": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Sync DSH Models (Console) (Dry Run)",
+			"detail": "弹出独立 cmd 窗口预览同步结果，不写入配置文件",
+			"type": "shell",
+			"command": "start",
+			"args": [
+				"",
+				"cmd",
+				"/c",
+				"set PYTHONPATH=${workspaceFolder}\\src& python -m dsh_byok_sync --all --dry-run & echo. & pause"
+			],
+			"options": {
+				"shell": {
+					"executable": "cmd.exe",
+					"args": [
+						"/d",
+						"/c"
+					]
+				}
+			},
+			"presentation": {
+				"reveal": "silent",
+				"close": true
+			},
+			"problemMatcher": []
+		}
+	]
+}
