@@ -183,9 +183,11 @@ def _make_rich_fakes(*, delay_scale: float = 0.008):
 
 class ResolveWorkerCountTest(unittest.TestCase):
     def test_none_scales_with_tasks_and_caps_at_default(self):
+        self.assertEqual(64, sync_module.DEFAULT_MAX_WORKERS)
         self.assertEqual(1, sync_module.resolve_worker_count(None, 0))
         self.assertEqual(1, sync_module.resolve_worker_count(None, 1))
         self.assertEqual(3, sync_module.resolve_worker_count(None, 3))
+        self.assertEqual(32, sync_module.resolve_worker_count(None, 32))
         self.assertEqual(
             sync_module.DEFAULT_MAX_WORKERS,
             sync_module.resolve_worker_count(None, sync_module.DEFAULT_MAX_WORKERS),
@@ -1049,6 +1051,7 @@ class CliConcurrencyTest(CliCase):
     def test_cli_help_mentions_workers_and_single_request_timeout(self):
         help_text = cli.build_parser().format_help()
         self.assertIn("--workers", help_text)
+        self.assertIn(str(sync_module.DEFAULT_MAX_WORKERS), help_text)
         self.assertIn("单个请求", help_text)
 
 

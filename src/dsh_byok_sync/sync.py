@@ -49,7 +49,7 @@ __all__ = [
 DEFAULT_TIMEOUT = 15.0
 
 #: Upper bound for automatic concurrent endpoint requests when ``max_workers=None``.
-DEFAULT_MAX_WORKERS = 8
+DEFAULT_MAX_WORKERS = 64
 
 _T = TypeVar("_T")
 
