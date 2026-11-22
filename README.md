@@ -135,7 +135,7 @@ python -m dsh_byok_sync --list-routes
 ### 3. 命令行参数详解
 
 ```
-dsh-byok-sync --all [--config PATH] [--dry-run] [--no-delete] [--sort] [--no-credits]
+dsh-byok-sync --all [--config PATH] [--dry-run] [--no-delete] [--sort] [--no-credits] [--workers N]
 dsh-byok-sync --provider ROUTE [--provider ROUTE ...] ...
 ```
 
@@ -150,11 +150,23 @@ dsh-byok-sync --provider ROUTE [--provider ROUTE ...] ...
 | `--no-delete` | 只新增，不删除本地已有模型 |
 | `--sort` | 把每个路由的模型列表按 id 字典序升序（大小写敏感）重排 |
 | `--no-credits` | 跳过自动余额查询 |
-| `--timeout SECONDS` | 请求超时（秒），默认 `15` |
+| `--timeout SECONDS` | **单个**请求的超时（秒），默认 `15` |
+| `--workers N` | 并发请求数；默认按请求数自动并发（上限 `8`），`--workers 1` 退回完全串行 |
 | `--credentials PATH` | 覆盖凭据文件路径（默认 `~/.dsh/.credentials.yaml`） |
 | `--list-routes` | 只列出可选路由后退出（不联网） |
 | `--no-color` | 强制关闭报告着色（等价于设置 `NO_COLOR`） |
 | `--version` | 显示版本信息 |
+
+### 4. 并发请求
+
+CLI 默认并发请求所有选定路由的模型列表端点与已知厂商的余额端点，把整轮网络耗时从"各端点串行耗时之和"降到"最慢单个请求"附近：
+
+- **单阶段共享线程池**：模型发现与余额查询放进同一个线程池同时调度（模型任务优先排在队列前部），默认线程数等于待发请求数并封顶于 `8`；`--workers N` 可指定正整数并发度，传 `--workers 1` 则直接在当前线程串行执行、不创建线程池。
+- **确定性结果**：所有请求并发执行，但结果严格按提交顺序回收；YAML 改写只在全部网络请求完成后，按路由选择顺序在主线程串行累积并由 CLI **一次性原子写盘**。因此不同 `--workers` 值产生的 stdout、stderr、退出码与写出的文件内容逐字节一致。
+- **异常与删除保护隔离**：单个端点请求超时、非 2xx 或意外异常只影响该路由（报 `error:` 并保留该路由既有模型，不中断其他路由）；余额查询失败或异常降级为 `unavailable`，不影响模型同步与退出码；异常信息中的凭据头会自动脱敏为 `<redacted>`。
+- **主线程凭据解析**：`credentials.resolve()` 与请求头构造全部在主线程、提交并发任务之前按路由各完成一次；工作线程只接收不可变参数与独立请求头副本。
+- **超时语义**：`--timeout` 依然是**单个** HTTP 请求的超时时间，而不是整轮同步的总超时。
+- **库调用默认串行**：直接调用 Python API [`sync_config()`](src/dsh_byok_sync/sync.py) 时 `max_workers` 默认为 `1`（保护外部传入的非线程安全 stub）；传入 `max_workers=None` 即可启用与 CLI 相同的自动并发。
 
 ## URL 规范
 
@@ -320,7 +332,7 @@ provider 的 `apiKeyEnv` 是一个**凭据引用名**（例如 `AGNESAI_API_KEY`
 
 ## 余额查询
 
-同步结束后，工具会对**已知厂商域名**自动查询账户余额，在报告对应路由下追加 `credits:` 行。匹配依据是 `baseURL` 的域名，与路由名无关。
+同步过程中，工具会对**已知厂商域名**与模型列表端点在同一线程池中并发查询账户余额，并在报告对应路由下追加 `credits:` 行。匹配依据是 `baseURL` 的域名，与路由名无关。
 
 | 域名 | 余额端点 | 货币 |
 | - | - | - |
@@ -416,7 +428,7 @@ dsh-byok-sync/
 │   ├── __init__.py           # 版本号与导出
 │   ├── __main__.py           # python -m 入口
 │   ├── cli.py                # 命令行入口（参数解析、报告、终端自动着色）
-│   ├── sync.py               # 核心同步逻辑（新增/保留/删除、预设、排序）
+│   ├── sync.py               # 核心同步逻辑（并发请求调度、新增/保留/删除、预设、排序）
 │   ├── configfile.py         # 文件形态判定、读取、原子写入、路径探测
 │   ├── yamlpatch.py          # YAML 子集解析与"字节级保留"重写
 │   ├── client.py             # HTTP 请求、URL 规范化、余额查询
@@ -430,6 +442,8 @@ dsh-byok-sync/
 │   ├── test_configfile.py
 │   ├── test_client.py
 │   ├── test_credentials.py
+│   ├── test_cli_color.py
+│   ├── test_concurrency.py
 │   └── test_sync.py
 ├── sync-dsh-models.bat       # 双击即同步（cmd 窗口，跑一次直接写盘）
 ├── CHANGELOG.md
@@ -438,7 +452,6 @@ dsh-byok-sync/
 
 ### 后续计划
 
-- 多端点请求改为并发，减少多个路由串行等待的总耗时
 - 把"保留既有条目"升级为可选的小幅规范化（例如统一字段顺序），默认仍保持字节不变
 - 支持在预设里按 `baseURL` 域名匹配，而不只是模型 id 子串
 - 提供 `--prune-routes`：清理已从配置移除但仍残留在凭据记录里的路由条目
