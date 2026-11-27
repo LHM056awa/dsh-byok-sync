@@ -13,7 +13,14 @@ from .configfile import DEFAULT_ENTRY, load_document, resolve_config, write_text
 from .credentials import Credentials
 from .models import ModelSyncError
 from .presets import load_presets
-from .sync import DEFAULT_TIMEOUT, RouteReport, SyncOptions, SyncOutcome, sync_config
+from .sync import (
+    DEFAULT_MAX_WORKERS,
+    DEFAULT_TIMEOUT,
+    RouteReport,
+    SyncOptions,
+    SyncOutcome,
+    sync_config,
+)
 
 __all__ = [
     "build_parser",
@@ -305,6 +312,16 @@ def render(outcome: SyncOutcome, path: str, *, color: bool = False) -> list[str]
 # --- CLI -------------------------------------------------------------------
 
 
+def _positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"必须是正整数，收到 {value!r}") from exc
+    if parsed < 1:
+        raise argparse.ArgumentTypeError(f"必须是正整数，收到 {value!r}")
+    return parsed
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dsh-byok-sync",
@@ -340,7 +357,17 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=DEFAULT_TIMEOUT,
         metavar="SECONDS",
-        help=f"请求超时，默认 {DEFAULT_TIMEOUT:g}",
+        help=f"单个请求的超时（秒），默认 {DEFAULT_TIMEOUT:g}",
+    )
+    parser.add_argument(
+        "--workers",
+        type=_positive_int,
+        default=None,
+        metavar="N",
+        help=(
+            f"并发请求数（默认按请求数自动并发，上限 {DEFAULT_MAX_WORKERS}；"
+            "--workers 1 退回完全串行）"
+        ),
     )
     parser.add_argument("--credentials", metavar="PATH", help="覆盖 DSH 凭据文件路径")
     parser.add_argument(
@@ -385,6 +412,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             use_credits=not args.no_credits,
             credentials=Credentials.load(args.credentials),
             presets=load_presets(),
+            max_workers=args.workers,
         )
         outcome = sync_config(document, selected, options=options)
     except ModelSyncError as exc:

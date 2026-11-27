@@ -2,6 +2,24 @@
 
 本文件记录 `dsh-byok-sync` 的所有显著变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## 0.2.0 (2026-11-21)
+
+### Added
+
+- **多端点单阶段合并并发请求**：在 `sync.py` 引入共享并发原语 `run_ordered()`、`resolve_worker_count()`
+  与默认并发上限 `DEFAULT_MAX_WORKERS = 64`；模型列表拉取与已知域名余额查询放进同一个
+  `ThreadPoolExecutor` 线程池同时执行（模型请求优先排队、余额请求同池并发），整轮网络耗时逼近最慢的单个请求。
+- **新增 `--workers N` 命令行参数**（以及 `SyncOptions.max_workers` / `sync_config(..., max_workers=...)`）：
+  CLI 默认自动按请求数并发（上限 `64`，按实际请求数按需开线程），传入 `--workers 1` 直接在当前线程串行执行且不创建线程池；
+  非法值（`0`、负数、非整数）由参数解析拒绝并以退出码 `2` 退出。库 API 默认仍保持 `max_workers=1`（串行）以兼容外部非线程安全注入。
+- **确定性与线程安全保障**：
+  - 所有路由的 `credentials.resolve()` 与请求头构造在主线程、提交任务前各执行一次；模型与余额任务使用独立请求头副本，零共享可变状态；
+  - 结果严格按提交顺序收集（不使用 `as_completed` 乱序追加），全部请求完成后才在主线程按路由选择顺序串行合并与改写 YAML，并由 CLI 一次性原子写盘；
+  - 单个模型请求抛出的意外异常被隔离为该路由的 `error: unexpected error: ...`（自动经 `_redact()` 脱敏，绝不泄露凭据并阻止误删）；单个余额请求异常降级为 `unavailable`，不影响其他路由与退出码。
+- **离线并发测试套件** `tests/test_concurrency.py`（纯标准库 `unittest`）：覆盖 worker 数校验、
+  提交顺序确定性、单阶段模型/余额同池重叠并发与提速、异常隔离与密钥脱敏、主线程凭据解析、
+  以及 CLI 在不同 `--workers` 下的逐字节一致与单次原子写盘时机。
+
 ## 0.1.0 (2026-11-19)
 
 ### Added

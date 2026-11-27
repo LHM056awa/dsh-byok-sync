@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dsh-byok-sync"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sync DeepSeek Harness (DSH) third-party LLM endpoint model lists from OpenAI-compatible /v1/models endpoints"
 readme = "README.md"
 requires-python = ">=3.10"
